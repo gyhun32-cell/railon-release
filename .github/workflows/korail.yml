@@ -1,0 +1,29 @@
+name: korail-timetable
+on:
+  schedule:
+    - cron: '30 21 * * *'   # 매일 06:30 (한국 시간)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: probe(샘플 확인) 또는 update(변경 감지·적용)
+        default: probe
+permissions:
+  contents: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 24 }
+      - name: Korail open data
+        env:
+          KORAIL_SERVICE_KEY: ${{ secrets.KORAIL_SERVICE_KEY }}
+        run: node scripts/korail.mjs ${{ github.event.inputs.mode || 'update' }}
+      - name: Save changes
+        if: ${{ (github.event.inputs.mode || 'update') == 'update' }}
+        run: |
+          git config user.name "railon-bot"
+          git config user.email "railon-bot@users.noreply.github.com"
+          git add -A timetable notices.json
+          git diff --cached --quiet || (git commit -m "시간표 점검 $(date -u +%F)" && git push)
