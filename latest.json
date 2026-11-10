@@ -1,7 +1,7 @@
 {
-  "versionCode": 15,
-  "versionName": "1.2.0",
-  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.2.0-15/railon.apk",
-  "notes": "다른 앱(게임·웹툰) 위에도 큰 알람 카드가 뜸(다른 앱 위에 표시 권한 필요), 큰 알람 카드·상단 알림 막대 각각 켜고 끄기",
-  "publishedAt": "2026-11-10T09:40:02.423Z"
+  "versionCode": 16,
+  "versionName": "1.2.1",
+  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.2.1-16/railon.apk",
+  "notes": "열차 고르기: 상행/하행(또는 열차 종류)을 고른 상태에서 '시간대 켜기·끄기', '모두 켜기'를 누르면 그 방향만 켜지고 꺼짐",
+  "publishedAt": "2026-11-10T10:31:17.679Z"
 }
