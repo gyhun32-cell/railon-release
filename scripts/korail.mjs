@@ -82,74 +82,96 @@ async function probe() {
     const mine = current.find((t) => t.id === String(Number(one)));
     if (mine) console.log('현재 시간표:', mine.stops.map((s) => `${s.station} ${s.time}`).join(', '));
   }
-  const plan = await call('travelerTrainRunPlan2', { 'cond[run_ymd::GTE]': tomorrow, 'cond[run_ymd::LTE]': tomorrow, 'cond[dptre_stn_nm::EQ]': '용산' });
-  console.log(`운행계획 ${tomorrow} 용산 출발: ${plan.length}행`);
-  console.log(JSON.stringify(plan.slice(0, 3), null, 1));
-  const far = await call('travelerTrainRunPlan2', { 'cond[run_ymd::GTE]': kstDate(28), 'cond[run_ymd::LTE]': kstDate(31), 'cond[dptre_stn_nm::EQ]': '용산' });
-  console.log(`운행계획 4주 뒤 용산 출발: ${far.length}행 (먼 날짜도 미리 나오는지 확인)`);
 }
 
 /* ---------- update ---------- */
+const LINES = ['호남선', '호남고속선', '광주선'];
 const trainNo = (s) => String(Number(s));
 function expectedOn(t, ymd) {
   if (!t.days || t.days === '매일' || t.days === '표기 없음') return true;
   return t.days.includes(DAYS[weekdayOf(ymd)]);
 }
 
-/** Compares Korail's published plan for the next weeks with our timetable, per day. */
-async function planDiff() {
-  const from = kstDate(1), to = kstDate(30);
-  const byOrigin = new Map();
-  for (const t of current) { const o = t.stops[0].station; if (!byOrigin.has(o)) byOrigin.set(o, []); byOrigin.get(o).push(t); }
-  const plan = [];
-  for (const origin of byOrigin.keys()) plan.push(...await call('travelerTrainRunPlan2', { 'cond[run_ymd::GTE]': from, 'cond[run_ymd::LTE]': to, 'cond[dptre_stn_nm::EQ]': origin }));
-  const days = new Map();
-  for (const r of plan) {
-    if (!days.has(r.run_ymd)) days.set(r.run_ymd, new Map());
-    days.get(r.run_ymd).set(trainNo(r.trn_no) + '|' + r.dptre_stn_nm, r);
+/** Stations Korail data does not cover (SR's own stations); their times are carried over from the old timetable. */
+const SR_ONLY = new Set(['수서', '동탄']);
+const minutes = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+
+/**
+ * Korail's "plan" endpoint only reaches yesterday, so changes are caught after the fact:
+ * compare the last few days of recorded runs with our timetable.
+ */
+async function recordDiff(days = 3) {
+  const from = kstDate(-days), to = kstDate(-1);
+  const rows = [];
+  for (const line of LINES) rows.push(...await call('travelerTrainRunInfo2', { 'cond[run_ymd::GTE]': from, 'cond[run_ymd::LTE]': to, 'cond[mrnt_nm::EQ]': line }));
+  const byDay = new Map();
+  for (const r of rows) {
+    if (!['01', '02', '05', '11'].includes(String(r.stop_se_cd))) continue;
+    // Same convention as the timetable: arrival time, departure only at the first stop.
+    const t = timeOf(r.trn_arvl_dt) || timeOf(r.trn_dptre_dt);
+    if (!t) continue;
+    if (!byDay.has(r.run_ymd)) byDay.set(r.run_ymd, new Map());
+    const day = byDay.get(r.run_ymd), no = trainNo(r.trn_no);
+    if (!day.has(no)) day.set(no, new Map());
+    day.get(no).set(r.stn_nm, t.slice(0, 5));
   }
-  const report = [];
-  for (const [ymd, rows] of [...days].sort()) {
-    let changed = [], missing = [], added = [];
-    const ourKeys = new Set();
-    for (const t of current) {
-      if (!expectedOn(t, ymd)) continue;
-      const key = t.id + '|' + t.stops[0].station;
-      ourKeys.add(key);
-      const r = rows.get(key);
-      const lastStation = t.stops.at(-1).station;
-      if (!r) { missing.push(t.id); continue; }
-      const dep = timeOf(r.trn_plan_dptre_dt)?.slice(0, 5);
-      if (dep && dep !== t.stops[0].time.slice(0, 5)) changed.push(`${t.id}번 ${t.stops[0].time.slice(0, 5)}→${dep}`);
-      else if (r.arvl_stn_nm && r.arvl_stn_nm !== lastStation && honamStations.has(r.arvl_stn_nm)) changed.push(`${t.id}번 종착 ${lastStation}→${r.arvl_stn_nm}`);
-    }
-    for (const [key, r] of rows) if (!ourKeys.has(key) && honamStations.has(r.arvl_stn_nm)) added.push(trainNo(r.trn_no));
-    report.push({ ymd, planned: rows.size, changed, missing, added });
+  const ymds = [...byDay.keys()].sort();
+  const changed = [], missing = [], added = [];
+  for (const t of current) {
+    const expected = ymds.filter((y) => expectedOn(t, y));
+    if (!expected.length) continue;
+    const seen = expected.filter((y) => byDay.get(y).has(t.id));
+    if (!seen.length) { missing.push(t.id); continue; }
+    // First station both sides know (SR-only stations are skipped).
+    const ref = t.stops.find((s) => !SR_ONLY.has(s.station) && seen.every((y) => byDay.get(y).get(t.id).has(s.station)));
+    if (!ref) continue;
+    const deltas = seen.map((y) => minutes(byDay.get(y).get(t.id).get(ref.station)) - minutes(ref.time.slice(0, 5)));
+    const consistent = Math.max(...deltas) - Math.min(...deltas) <= 2;
+    // Recorded runs drift later with delays, so only an earlier time or a big consistent jump counts as a timetable change.
+    if (seen.length >= 2 && consistent && (deltas[0] <= -2 || deltas[0] >= 10)) changed.push(`${t.id}번 ${ref.station} ${ref.time.slice(0, 5)}→${byDay.get(seen[0]).get(t.id).get(ref.station)}`);
   }
-  return report;
+  const ours = new Set(current.map((t) => t.id));
+  const counts = new Map();
+  for (const day of byDay.values()) for (const [no, stops] of day) {
+    if (ours.has(no) || [...stops.keys()].filter((s) => honamStations.has(s)).length < 2) continue;
+    counts.set(no, (counts.get(no) || 0) + 1);
+  }
+  for (const [no, n] of counts) if (n >= Math.min(2, ymds.length)) added.push(no);
+  return { from, to, days: ymds.length, changed, missing, added };
 }
 
-function noticeFromReport(report) {
-  const big = (d) => d.changed.length + d.added.length + d.missing.length >= Math.max(4, Math.round(current.length * 0.06));
-  for (let i = 0; i + 2 < report.length; i++) {
-    if (big(report[i]) && big(report[i + 1]) && big(report[i + 2])) {
-      const d = report[i];
-      return {
-        id: 'plan-' + d.ymd,
-        important: true,
-        date: ymdDash(kstDate(0)),
-        effective: ymdDash(d.ymd),
-        title: `${Number(d.ymd.slice(4, 6))}월 ${Number(d.ymd.slice(6, 8))}일부터 시간표가 바뀌는 것 같아요`,
-        summary: `코레일 운행계획 기준 변경 ${d.changed.length}개 · 새 열차 ${d.added.length}개 · 빠지는 열차 ${d.missing.length}개. 바뀐 날 이후 운행 기록이 쌓이면 앱 시간표가 자동으로 바뀌어요.` + (d.changed.length ? ` 예: ${d.changed.slice(0, 5).join(', ')}` : ''),
-      };
-    }
-  }
-  return null;
+function noticeFromDiff(d) {
+  const total = d.changed.length + d.added.length + d.missing.length;
+  if (total < Math.max(8, Math.round(current.length * 0.05))) return null;
+  return {
+    id: 'change-' + d.from,
+    important: true,
+    date: ymdDash(kstDate(0)),
+    effective: ymdDash(d.from),
+    title: '코레일 시간표가 바뀐 것 같아요',
+    summary: `최근 ${d.days}일 운행 기록이 앱 시간표와 달라요: 시간 변경 ${d.changed.length}개 · 새 열차 ${d.added.length}개 · 안 다니는 열차 ${d.missing.length}개. 일주일치 기록이 쌓이면 앱 시간표가 자동으로 바뀌어요. 그 전까지는 역의 안내를 함께 확인해 주세요.`
+      + (d.changed.length ? ` 예: ${d.changed.slice(0, 5).join(', ')}` : ''),
+  };
+}
+
+/** Carries SR-only stops (수서·동탄) over from the old train, shifted by how much the train moved. */
+function keepSrStops(train) {
+  const old = current.find((x) => x.id === train.id);
+  if (!old) return train;
+  const extra = old.stops.filter((s) => SR_ONLY.has(s.station) && !train.stops.some((x) => x.station === s.station));
+  if (!extra.length) return train;
+  const common = old.stops.find((s) => train.stops.some((x) => x.station === s.station));
+  const shift = common ? minutes(train.stops.find((x) => x.station === common.station).time) - minutes(common.time) : 0;
+  const moved = (t) => { const m = (minutes(t) + shift + 1440) % 1440; return `${pad(Math.floor(m / 60))}:${pad(m % 60)}:00`; };
+  const before = [], after = [];
+  const firstIdx = old.stops.findIndex((s) => !SR_ONLY.has(s.station));
+  for (const s of extra) (old.stops.indexOf(s) < firstIdx ? before : after).push({ station: s.station, time: moved(s.time) });
+  return { ...train, stops: [...before, ...train.stops, ...after] };
 }
 
 /** Rebuilds the full stop-by-stop timetable from the last 14 days of recorded runs. */
-async function rebuild(lines) {
-  const from = kstDate(-14), to = kstDate(-1);
+async function rebuild(lines, since = null) {
+  const from = since && since > kstDate(-14) ? since : kstDate(-14), to = kstDate(-1);
   const rows = [];
   for (const line of lines) rows.push(...await call('travelerTrainRunInfo2', { 'cond[run_ymd::GTE]': from, 'cond[run_ymd::LTE]': to, 'cond[mrnt_nm::EQ]': line }));
   const runs = new Map();
@@ -161,8 +183,9 @@ async function rebuild(lines) {
   const trains = new Map();
   for (const [key, stops] of runs) {
     const [ymd, no] = key.split('|');
-    const real = stops.filter((s) => !/통과|미정차/.test(s.stop_se_nm || ''))
-      .map((s) => ({ station: s.stn_nm, time: timeOf(s.trn_dptre_dt) || timeOf(s.trn_arvl_dt), sn: Number(s.trn_run_sn) || 0, up: s.uppln_dn_se_cd }))
+    // Only real passenger stops (시발/정차/종착/여객승하차). Arrival time matters for the duty alarm; the first stop has only a departure.
+    const real = stops.filter((s) => ['01', '02', '05', '11'].includes(String(s.stop_se_cd)))
+      .map((s) => ({ station: s.stn_nm, time: (process.env.TIME === 'dep' ? timeOf(s.trn_dptre_dt) || timeOf(s.trn_arvl_dt) : timeOf(s.trn_arvl_dt) || timeOf(s.trn_dptre_dt)), sn: Number(s.trn_run_sn) || 0, up: s.uppln_dn_se_cd }))
       .filter((s) => s.time && honamStations.has(s.station))
       .sort((a, b) => a.sn - b.sn || a.time.localeCompare(b.time));
     if (real.length < 2) continue;
@@ -179,7 +202,10 @@ async function rebuild(lines) {
     const pick = t.samples.filter((s) => s.map((x) => x.station).join('>') === sig);
     const stops = pick[0].map((s, i) => {
       const times = pick.map((p) => p[i].time.slice(0, 5));
-      const mode = [...times.reduce((m, x) => m.set(x, (m.get(x) || 0) + 1), new Map())].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
+      // These are recorded runs, so delays only push times later: the earliest time seen is the closest to the schedule.
+      const mode = process.env.PICK === 'mode'
+        ? [...times.reduce((m, x) => m.set(x, (m.get(x) || 0) + 1), new Map())].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0]
+        : [...times].sort()[0];
       return { station: s.station, time: mode + ':00' };
     });
     const old = current.find((x) => x.id === no);
@@ -187,32 +213,33 @@ async function rebuild(lines) {
     out.push({
       id: no,
       type: old?.type || '열차',
-      direction: old?.direction || (String(pick[0][0].up).includes('1') || /상/.test(pick[0][0].up) ? 'up' : 'down'),
-      days: dayList.length === 7 ? '매일' : dayList.map((d) => DAYS[d]).join(''),
+      direction: pick[0][0].up === 'U' ? 'up' : pick[0][0].up === 'D' ? 'down' : old?.direction || 'down',
+      days: dayList.length === 7 ? '매일' : dayList.sort((x, y) => ((x + 6) % 7) - ((y + 6) % 7)).map((d) => DAYS[d]).join(''),
       stops,
     });
   }
-  return out.sort((a, b) => a.stops[0].time.localeCompare(b.stops[0].time));
+  return out.map(keepSrStops).sort((a, b) => a.stops[0].time.localeCompare(b.stops[0].time));
 }
 
 async function update() {
   const notices = existsSync('notices.json') ? JSON.parse(readFileSync('notices.json', 'utf8')) : [];
-  const report = await planDiff();
-  writeFileSync('timetable/plan-check.json', JSON.stringify({ checkedAt: new Date().toISOString(), days: report.map((d) => ({ ...d, changed: d.changed.slice(0, 30), missing: d.missing.slice(0, 30), added: d.added.slice(0, 30) })) }, null, 1) + '\n');
-  const notice = noticeFromReport(report);
-  if (notice && !notices.some((n) => n.id === notice.id)) {
+  const diff = await recordDiff(3);
+  writeFileSync('timetable/check.json', JSON.stringify({ checkedAt: new Date().toISOString(), ...diff, changed: diff.changed.slice(0, 40), missing: diff.missing.slice(0, 40), added: diff.added.slice(0, 40) }, null, 1) + '\n');
+  console.log(`최근 ${diff.days}일: 변경 ${diff.changed.length} · 빠짐 ${diff.missing.length} · 새 열차 ${diff.added.length}`);
+  const notice = noticeFromDiff(diff);
+  const open = notices.find((n) => n.id?.startsWith('change-') && !n.applied);
+  if (notice && !open) {
     notices.unshift(notice);
     console.log('공지 추가:', notice.title);
   }
   writeFileSync('notices.json', JSON.stringify(notices.slice(0, 20), null, 1) + '\n');
 
   // Rebuild only after a detected change has been running for at least 7 days.
-  const pending = notices.find((n) => n.id?.startsWith('plan-') && !n.applied);
+  const pending = notices.find((n) => n.id?.startsWith('change-') && !n.applied);
   if (!pending) { console.log('적용 대기 중인 시간표 변경 없음'); return; }
   const daysSince = (Date.parse(ymdDash(kstDate(0))) - Date.parse(pending.effective)) / 86400000;
   if (daysSince < 7) { console.log(`변경 ${pending.effective} · 운행 기록 쌓이는 중 (${daysSince}일)`); return; }
-  const lineCodes = (await call('codes2', { 'cond[type::EQ]': 'mrnt_cd' })).map((x) => x.value).filter((v) => /호남|전라/.test(v));
-  const rebuilt = await rebuild(lineCodes.length ? lineCodes : ['호남선']);
+  const rebuilt = await rebuild(LINES, pending.effective.replace(/-/g, ''));
   const ratio = rebuilt.length / current.length;
   const covered = new Set(rebuilt.flatMap((t) => t.stops.map((s) => s.station)));
   const overlap = [...honamStations].filter((s) => covered.has(s)).length / honamStations.size;
@@ -226,4 +253,45 @@ async function update() {
   console.log('새 시간표 적용:', version);
 }
 
-(mode === 'update' ? update() : probe()).catch((e) => { console.error(e.message); process.exit(1); });
+/** Rebuilds without saving and prints how far it is from the current timetable. */
+async function compare() {
+  const rebuilt = await rebuild(LINES);
+  const byId = new Map(rebuilt.map((t) => [t.id, t]));
+  const ours = new Map(current.map((t) => [t.id, t]));
+  const missing = current.filter((t) => !byId.has(t.id)).map((t) => `${t.id}(${t.days})`);
+  const extra = rebuilt.filter((t) => !ours.has(t.id)).map((t) => `${t.id}:${t.stops[0].station}>${t.stops.at(-1).station}`);
+  let same = 0, dirWrong = 0, stopSetDiff = 0;
+  const diff = [];
+  for (const t of rebuilt) {
+    const o = ours.get(t.id);
+    if (!o) continue;
+    if (o.direction !== t.direction) dirWrong++;
+    if (o.stops.map((s) => s.station).join() !== t.stops.map((s) => s.station).join()) stopSetDiff++;
+    for (const s of t.stops) {
+      const os = o.stops.find((x) => x.station === s.station);
+      if (!os) continue;
+      const d = Math.round((Date.parse('2026-01-01T' + s.time + 'Z') - Date.parse('2026-01-01T' + os.time + 'Z')) / 60000);
+      if (Math.abs(d) <= 1) same++; else diff.push(`${t.id}@${s.station} ${os.time.slice(0, 5)}→${s.time.slice(0, 5)}`);
+    }
+  }
+  console.log(`재구성 ${rebuilt.length} / 기존 ${current.length}`);
+  console.log(`방향 불일치 ${dirWrong} · 정차역 구성 다름 ${stopSetDiff}`);
+  console.log(`정차 시각 ±1분 일치 ${same} · 2분 이상 차이 ${diff.length}`);
+  console.log('차이 예: ' + diff.slice(0, 25).join(', '));
+  console.log(`API에 없는 기존 열차 ${missing.length}: ${missing.join(' ')}`);
+  console.log(`기존에 없는 API 열차 ${extra.length}: ${extra.join(' ')}`);
+  const naju = (list) => list.filter((t) => t.stops.some((s) => s.station === '나주')).length;
+  console.log(`나주 정차: 재구성 ${naju(rebuilt)} / 기존 ${naju(current)}`);
+  const days = {};
+  for (const t of rebuilt) days[t.days] = (days[t.days] || 0) + 1;
+  console.log('운행요일 분포', JSON.stringify(days));
+  if (process.env.OUT) writeFileSync(process.env.OUT, JSON.stringify(rebuilt));
+}
+
+async function planOnly() {
+  const d = await recordDiff(3);
+  console.log(JSON.stringify(d, null, 1));
+  console.log('감지 결과:', JSON.stringify(noticeFromDiff(d)));
+}
+
+(mode === 'update' ? update() : mode === 'compare' ? compare() : mode === 'plan' ? planOnly() : probe()).catch((e) => { console.error(e.message); process.exit(1); });
