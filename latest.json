@@ -1,7 +1,7 @@
 {
-  "versionCode": 24,
-  "versionName": "1.4.2",
-  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.4.2-24/railon.apk",
-  "notes": "역 고르기도 아이폰식 휠로 / 홈의 '10분 전' 칸을 누르면 휠로 1~120분 선택 / '알람 받을 열차 고르기' 버튼을 위로 올림",
-  "publishedAt": "2026-11-10T15:43:11.113Z"
+  "versionCode": 26,
+  "versionName": "1.5.0",
+  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.5.0-26/railon.apk",
+  "notes": "통과 열차 위험 알림: 나주에 서지 않고 지나가는 열차도 빨간 표시·빨간 알람으로 알려줘요(예상 시각 ±3분) / 열차 고르기의 '통과 열차' 칩에서 필요 없는 통과 열차만 따로 끌 수 있어요",
+  "publishedAt": "2026-11-10T16:01:08.312Z"
 }
