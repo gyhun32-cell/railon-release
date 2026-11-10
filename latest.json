@@ -1,7 +1,7 @@
 {
-  "versionCode": 21,
-  "versionName": "1.4.0",
-  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.4.0-21/railon.apk",
-  "notes": "새 디자인: 앱 전체를 차분한 다크 글래스 디자인으로 바꾸고 이모지 대신 선 아이콘·떠 있는 탭바 / 알람 화면 새 디자인(큰 시각·잔잔한 파동·둥근 버튼, 카드는 위에서 내려오며 상단 알림과 겹치지 않음)",
-  "publishedAt": "2026-11-10T14:41:37.678Z"
+  "versionCode": 22,
+  "versionName": "1.4.1",
+  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.4.1-22/railon.apk",
+  "notes": "알람 화면을 아이폰 스타일로: 글자 중심의 깔끔한 화면, 흐린 배경화면 느낌의 은은한 빛, 주황색 '5분 뒤 다시'와 유리 '확인' 버튼, 카드도 아이폰 알림처럼",
+  "publishedAt": "2026-11-10T15:12:38.699Z"
 }
