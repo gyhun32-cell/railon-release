@@ -1,7 +1,7 @@
 {
-  "versionCode": 6,
-  "versionName": "1.0.0",
-  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.0.0-6/railon.apk",
-  "notes": "레일온 첫 버전 – 알람시계형 근무 알람, 자동 업데이트, 시간표 변경 확인",
-  "publishedAt": "2026-11-09T16:23:41.784Z"
+  "versionCode": 8,
+  "versionName": "1.1.0",
+  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.1.0-8/railon.apk",
+  "notes": "알람 알림을 시계앱처럼(시간·메모 크게), 시간대 한번에 켜기, 아이폰식 시간·날짜 선택기",
+  "publishedAt": "2026-11-10T05:33:22.508Z"
 }
