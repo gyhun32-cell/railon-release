@@ -1,7 +1,7 @@
 {
-  "versionCode": 18,
-  "versionName": "1.3.1",
-  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.3.1-18/railon.apk",
-  "notes": "화면 꺼짐·잠금 화면에선 꽉 찬 전체 화면 알람(큰 도착 시각·큰 버튼), 폰 사용 중엔 위쪽 카드 / 잠금 해제 없이 바로 확인·5분 뒤 다시",
-  "publishedAt": "2026-11-10T14:12:26.415Z"
+  "versionCode": 21,
+  "versionName": "1.4.0",
+  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.4.0-21/railon.apk",
+  "notes": "새 디자인: 앱 전체를 차분한 다크 글래스 디자인으로 바꾸고 이모지 대신 선 아이콘·떠 있는 탭바 / 알람 화면 새 디자인(큰 시각·잔잔한 파동·둥근 버튼, 카드는 위에서 내려오며 상단 알림과 겹치지 않음)",
+  "publishedAt": "2026-11-10T14:41:37.678Z"
 }
