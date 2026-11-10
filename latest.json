@@ -1,7 +1,7 @@
 {
-  "versionCode": 22,
-  "versionName": "1.4.1",
-  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.4.1-22/railon.apk",
-  "notes": "알람 화면을 아이폰 스타일로: 글자 중심의 깔끔한 화면, 흐린 배경화면 느낌의 은은한 빛, 주황색 '5분 뒤 다시'와 유리 '확인' 버튼, 카드도 아이폰 알림처럼",
-  "publishedAt": "2026-11-10T15:12:38.699Z"
+  "versionCode": 24,
+  "versionName": "1.4.2",
+  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.4.2-24/railon.apk",
+  "notes": "역 고르기도 아이폰식 휠로 / 홈의 '10분 전' 칸을 누르면 휠로 1~120분 선택 / '알람 받을 열차 고르기' 버튼을 위로 올림",
+  "publishedAt": "2026-11-10T15:43:11.113Z"
 }
