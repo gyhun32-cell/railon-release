@@ -1,7 +1,7 @@
 {
-  "versionCode": 10,
-  "versionName": "1.1.1",
-  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.1.1-10/railon.apk",
-  "notes": "알람이 켜진 화면에서도 큰 팝업으로 뜸, 시간대 고르기 휠로 변경(글씨 안보이던 문제 수정)",
-  "publishedAt": "2026-11-10T06:01:32.128Z"
+  "versionCode": 11,
+  "versionName": "1.1.2",
+  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.1.2-11/railon.apk",
+  "notes": "화면 켜져 있을 땐 카드 팝업(큰 화면은 잠금/꺼짐 때만), 아이폰풍 부드러운 애니메이션",
+  "publishedAt": "2026-11-10T06:29:03.432Z"
 }
