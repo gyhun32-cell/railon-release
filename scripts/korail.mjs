@@ -7,7 +7,8 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 const BASE = 'https://apis.data.go.kr/B551457/run/v2';
 const KEY = process.env.KORAIL_SERVICE_KEY;
 const mode = process.argv[2] || 'probe';
-if (!KEY) { console.error('KORAIL_SERVICE_KEY 비밀값이 없습니다.'); process.exit(2); }
+// Until the key is registered the daily run just skips, so it doesn't fail (and email) every day.
+if (!KEY) { console.log('KORAIL_SERVICE_KEY 비밀값이 아직 없어 건너뜁니다.'); process.exit(mode === 'probe' ? 2 : 0); }
 
 const DAYS = '일월화수목금토';
 const pad = (n) => String(n).padStart(2, '0');
