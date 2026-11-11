@@ -1,7 +1,7 @@
 {
-  "versionCode": 29,
-  "versionName": "1.5.1",
-  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.5.1-29/railon.apk",
-  "notes": "알람 카드 팝업 우선 표시 · 시스템 알림 배너 겹침 방지 · 카드 화면 상단 배치 (다른 앱 위에 표시 권한 필요)",
-  "publishedAt": "2026-11-11T01:15:28.299698+00:00"
+  "versionCode": 30,
+  "versionName": "1.5.2",
+  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.5.2-30/railon.apk",
+  "notes": "작은 막대 알림 없이 카드 팝업만 표시 · 카드를 상태표시줄 바로 아래로 이동 · 카드 알람 소리와 진동 유지",
+  "publishedAt": "2026-11-11T01:27:28.236494+00:00"
 }
