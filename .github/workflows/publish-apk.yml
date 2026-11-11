@@ -13,15 +13,15 @@ jobs:
       - uses: actions/checkout@v5
       - name: Verify staged release APK
         run: |
-          base64 --decode .release/railon-1.5.1-29.apk.b64 > "$RUNNER_TEMP/railon.apk"
-          echo '6148aaae458a6804d68572b225cd265dfddcb9cb3e8c103210875f31a8a5f96a  '"$RUNNER_TEMP/railon.apk" | sha256sum --check
+          base64 --decode .release/railon-1.5.2-30.apk.b64 > "$RUNNER_TEMP/railon.apk"
+          echo '85d5c38cc74a1af89c4b6be3d1426a8a383aea156ec07086b621dc583ccefce5  '"$RUNNER_TEMP/railon.apk" | sha256sum --check
       - name: Publish signed APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view v1.5.1-29 >/dev/null 2>&1 || gh release create v1.5.1-29 --draft --title '레일온 1.5.1 (29)' --notes-file .release/notes.md
-          gh release upload v1.5.1-29 "$RUNNER_TEMP/railon.apk" --clobber
-          gh release edit v1.5.1-29 --draft=false --latest --title '레일온 1.5.1 (29)' --notes-file .release/notes.md
+          gh release view v1.5.2-30 >/dev/null 2>&1 || gh release create v1.5.2-30 --draft --title '레일온 1.5.2 (30)' --notes-file .release/notes.md
+          gh release upload v1.5.2-30 "$RUNNER_TEMP/railon.apk" --clobber
+          gh release edit v1.5.2-30 --draft=false --latest --title '레일온 1.5.2 (30)' --notes-file .release/notes.md
       - name: Update app manifest
         run: |
           python3 - <<'PY'
@@ -29,13 +29,13 @@ jobs:
           from datetime import datetime, timezone
           from pathlib import Path
           current = json.loads(Path('latest.json').read_text())
-          if current['versionCode'] > 29:
+          if current['versionCode'] > 30:
               raise SystemExit('A newer release already exists; refusing to downgrade')
           latest = {
-              'versionCode': 29,
-              'versionName': '1.5.1',
-              'apk': 'https://github.com/gyhun32-cell/railon-release/releases/download/v1.5.1-29/railon.apk',
-              'notes': '알람 카드 팝업 우선 표시 · 시스템 알림 배너 겹침 방지 · 카드 화면 상단 배치 (다른 앱 위에 표시 권한 필요)',
+              'versionCode': 30,
+              'versionName': '1.5.2',
+              'apk': 'https://github.com/gyhun32-cell/railon-release/releases/download/v1.5.2-30/railon.apk',
+              'notes': '작은 막대 알림 없이 카드 팝업만 표시 · 카드를 상태표시줄 바로 아래로 이동 · 카드 알람 소리와 진동 유지',
               'publishedAt': datetime.now(timezone.utc).isoformat(),
           }
           Path('latest.json').write_text(json.dumps(latest, ensure_ascii=False, indent=2) + '\n')
@@ -43,5 +43,5 @@ jobs:
           git config user.name 'railon-bot'
           git config user.email 'railon-bot@users.noreply.github.com'
           git add latest.json
-          git diff --cached --quiet || git commit -m 'release: 레일온 1.5.1 (29) 업데이트 배포'
+          git diff --cached --quiet || git commit -m 'release: 레일온 1.5.2 (30) 업데이트 배포'
           git push
