@@ -1,0 +1,47 @@
+name: Publish staged APK
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: publish-apk
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify staged release APK
+        run: |
+          base64 --decode .release/railon-1.5.1-29.apk.b64 > "$RUNNER_TEMP/railon.apk"
+          echo '6148aaae458a6804d68572b225cd265dfddcb9cb3e8c103210875f31a8a5f96a  '"$RUNNER_TEMP/railon.apk" | sha256sum --check
+      - name: Publish signed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view v1.5.1-29 >/dev/null 2>&1 || gh release create v1.5.1-29 --draft --title '레일온 1.5.1 (29)' --notes-file .release/notes.md
+          gh release upload v1.5.1-29 "$RUNNER_TEMP/railon.apk" --clobber
+          gh release edit v1.5.1-29 --draft=false --latest --title '레일온 1.5.1 (29)' --notes-file .release/notes.md
+      - name: Update app manifest
+        run: |
+          python3 - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+          current = json.loads(Path('latest.json').read_text())
+          if current['versionCode'] > 29:
+              raise SystemExit('A newer release already exists; refusing to downgrade')
+          latest = {
+              'versionCode': 29,
+              'versionName': '1.5.1',
+              'apk': 'https://github.com/gyhun32-cell/railon-release/releases/download/v1.5.1-29/railon.apk',
+              'notes': '알람 카드 팝업 우선 표시 · 시스템 알림 배너 겹침 방지 · 카드 화면 상단 배치 (다른 앱 위에 표시 권한 필요)',
+              'publishedAt': datetime.now(timezone.utc).isoformat(),
+          }
+          Path('latest.json').write_text(json.dumps(latest, ensure_ascii=False, indent=2) + '\n')
+          PY
+          git config user.name 'railon-bot'
+          git config user.email 'railon-bot@users.noreply.github.com'
+          git add latest.json
+          git diff --cached --quiet || git commit -m 'release: 레일온 1.5.1 (29) 업데이트 배포'
+          git push
