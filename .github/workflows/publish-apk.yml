@@ -13,15 +13,15 @@ jobs:
       - uses: actions/checkout@v5
       - name: Verify staged release APK
         run: |
-          base64 --decode .release/railon-1.5.2-30.apk.b64 > "$RUNNER_TEMP/railon.apk"
-          echo '85d5c38cc74a1af89c4b6be3d1426a8a383aea156ec07086b621dc583ccefce5  '"$RUNNER_TEMP/railon.apk" | sha256sum --check
+          base64 --decode .release/railon-1.5.3-32.apk.b64 > "$RUNNER_TEMP/railon.apk"
+          echo '614f98c5c3c8df8e77b071eda4de04df975d77f76cd3ab77184453deede5d016  '"$RUNNER_TEMP/railon.apk" | sha256sum --check
       - name: Publish signed APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view v1.5.2-30 >/dev/null 2>&1 || gh release create v1.5.2-30 --draft --title '레일온 1.5.2 (30)' --notes-file .release/notes.md
-          gh release upload v1.5.2-30 "$RUNNER_TEMP/railon.apk" --clobber
-          gh release edit v1.5.2-30 --draft=false --latest --title '레일온 1.5.2 (30)' --notes-file .release/notes.md
+          gh release view v1.5.3-32 >/dev/null 2>&1 || gh release create v1.5.3-32 --draft --title '레일온 1.5.3 (32)' --notes-file .release/notes.md
+          gh release upload v1.5.3-32 "$RUNNER_TEMP/railon.apk" --clobber
+          gh release edit v1.5.3-32 --draft=false --latest --title '레일온 1.5.3 (32)' --notes-file .release/notes.md
       - name: Update app manifest
         run: |
           python3 - <<'PY'
@@ -29,13 +29,13 @@ jobs:
           from datetime import datetime, timezone
           from pathlib import Path
           current = json.loads(Path('latest.json').read_text())
-          if current['versionCode'] > 30:
+          if current['versionCode'] > 32:
               raise SystemExit('A newer release already exists; refusing to downgrade')
           latest = {
-              'versionCode': 30,
-              'versionName': '1.5.2',
-              'apk': 'https://github.com/gyhun32-cell/railon-release/releases/download/v1.5.2-30/railon.apk',
-              'notes': '작은 막대 알림 없이 카드 팝업만 표시 · 카드를 상태표시줄 바로 아래로 이동 · 카드 알람 소리와 진동 유지',
+              'versionCode': 32,
+              'versionName': '1.5.3',
+              'apk': 'https://github.com/gyhun32-cell/railon-release/releases/download/v1.5.3-32/railon.apk',
+              'notes': '시간·역 선택 창을 열면 뒤 화면 터치와 스크롤 고정 · 위쪽 손잡이를 아래로 쓸어내려 닫기 · 닫으면 원래 화면 위치로 복귀',
               'publishedAt': datetime.now(timezone.utc).isoformat(),
           }
           Path('latest.json').write_text(json.dumps(latest, ensure_ascii=False, indent=2) + '\n')
@@ -43,5 +43,5 @@ jobs:
           git config user.name 'railon-bot'
           git config user.email 'railon-bot@users.noreply.github.com'
           git add latest.json
-          git diff --cached --quiet || git commit -m 'release: 레일온 1.5.2 (30) 업데이트 배포'
+          git diff --cached --quiet || git commit -m 'release: 레일온 1.5.3 (32) 업데이트 배포'
           git push
