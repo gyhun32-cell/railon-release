@@ -1,7 +1,7 @@
 {
-  "versionCode": 32,
-  "versionName": "1.5.3",
-  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.5.3-32/railon.apk",
-  "notes": "시간·역 선택 창을 열면 뒤 화면 터치와 스크롤 고정 · 위쪽 손잡이를 아래로 쓸어내려 닫기 · 닫으면 원래 화면 위치로 복귀",
-  "publishedAt": "2026-11-11T01:43:55.503777+00:00"
+  "versionCode": 35,
+  "versionName": "1.5.4",
+  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.5.4-35/railon.apk",
+  "notes": "전체 알람·상단 카드 디자인 개선 · 프리텐다드 한글 글꼴 · 유리 느낌의 캡슐 버튼과 부드러운 눌림 효과",
+  "publishedAt": "2026-11-11T02:37:09.367738+00:00"
 }
