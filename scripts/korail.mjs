@@ -252,41 +252,55 @@ async function coupledMap(trains) {
   console.log(`운행 기록 ${from}~${to}: 호남 ${honamRows.length}줄 · 전라 ${jeollaRows.length}줄`);
   if (jeolla.size < 2 || honam.size < 2) return null;
   const ids = new Set(trains.map((t) => t.id));
-  const score = new Map();
+  const score = new Map(), ran = new Map(), joined = new Map();
+  const mark = (m, id, ymd) => { if (!m.has(id)) m.set(id, new Set()); m.get(id).add(ymd); };
   for (const [ymd, hDay] of honam) {
     const jDay = jeolla.get(ymd);
     if (!jDay) continue;
     for (const [id, hs] of hDay) {
       if (!ids.has(id)) continue;
+      mark(ran, id, ymd);
       for (const [no, js] of jDay) {
         if (no === id) continue;
         let same = 0;
         for (const [st, t] of hs) if (js.has(st) && Math.abs(js.get(st) - t) <= 60) same++;
-        if (same >= 2) score.set(id + '+' + no, (score.get(id + '+' + no) || 0) + 1);
+        if (same >= 2) { score.set(id + '+' + no, (score.get(id + '+' + no) || 0) + 1); mark(joined, id + '+' + no, ymd); }
       }
     }
   }
   const pairs = [...score].map(([k, days]) => ({ id: k.split('+')[0], no: k.split('+')[1], days })).filter((p) => p.days >= 2).sort((x, y) => y.days - x.days);
   const out = {}, used = new Set();
   for (const p of pairs) {
-    if (out[p.id] || used.has(p.no)) { console.log(`  (건너뜀 ${p.id}+${p.no}: ${p.days}일)`); continue; }
+    for (const ymd of joined.get(p.id + '+' + p.no)) mark(joined, p.id, ymd);
+    if (out[p.id] || used.has(p.no)) { console.log(`  (또 다른 짝 ${p.id}+${p.no}: ${p.days}일)`); continue; }
     out[p.id] = p.no;
     used.add(p.no);
     console.log(`  ${p.id}+${p.no}: ${p.days}일 동안 같은 시각`);
   }
-  return out;
+  // Coupled on every day it ran → no weekday list; otherwise only the weekdays seen coupled.
+  const daysOut = {};
+  for (const id of Object.keys(out)) {
+    const on = joined.get(id), all = ran.get(id);
+    if (on.size >= all.size) continue;
+    const wd = [...new Set([...on].map(weekdayOf))].sort((x, y) => ((x + 6) % 7) - ((y + 6) % 7));
+    daysOut[id] = wd.map((d) => DAYS[d]).join('');
+    console.log(`  ${id}: ${all.size}일 운행 중 ${on.size}일만 복합 (${daysOut[id]})`);
+  }
+  return { pairs: out, days: daysOut };
 }
 
 /** Marks coupled trains in timetable/data.json; bumps the version only when the marks change. */
 async function refreshCoupled(save = true) {
   const data = JSON.parse(readFileSync('timetable/data.json', 'utf8'));
-  const map = await coupledMap(data);
+  const found = await coupledMap(data);
+  const map = found?.pairs, days = found?.days;
   if (!map) { console.log('전라선 기록이 부족해 복합열차 표시는 그대로 둠'); return; }
   console.log('복합열차 ' + Object.keys(map).length + '개: ' + data.filter((t) => map[t.id]).map((t) => `${t.id}(${t.direction === 'down' ? '하행' : '상행'} ${t.stops[0].time.slice(0, 5)} ${t.stops[0].station}→${t.stops.at(-1).station})+${map[t.id]}`).join(', '));
   let changed = false;
   for (const t of data) {
-    if ((t.coupled || '') !== (map[t.id] || '')) changed = true;
+    if ((t.coupled || '') !== (map[t.id] || '') || (t.coupledDays || '') !== (days[t.id] || '')) changed = true;
     if (map[t.id]) t.coupled = map[t.id]; else delete t.coupled;
+    if (days[t.id]) t.coupledDays = days[t.id]; else delete t.coupledDays;
   }
   if (!changed || !save) { console.log(changed ? '(저장 안 함)' : '복합열차 표시 변화 없음'); return; }
   const meta = JSON.parse(readFileSync('timetable/meta.json', 'utf8'));
