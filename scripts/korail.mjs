@@ -227,34 +227,52 @@ async function rebuild(lines, since = null) {
  * 전라선 records could not be read (so existing marks are kept).
  */
 async function coupledMap(trains) {
-  const rows = await call('travelerTrainRunInfo2', { 'cond[run_ymd::GTE]': kstDate(-7), 'cond[run_ymd::LTE]': kstDate(-1), 'cond[mrnt_nm::EQ]': '전라선' });
-  const other = new Map();
-  for (const r of rows) {
-    if (!['01', '02', '05', '11'].includes(String(r.stop_se_cd)) || !honamStations.has(r.stn_nm)) continue;
-    const t = timeOf(r.trn_arvl_dt) || timeOf(r.trn_dptre_dt);
-    if (!t) continue;
-    const no = trainNo(r.trn_no);
-    if (!other.has(no)) other.set(no, new Map());
-    const m = other.get(no), hm = t.slice(0, 5);
-    if (!m.has(r.stn_nm) || hm < m.get(r.stn_nm)) m.set(r.stn_nm, hm);
+  // Compare real runs day by day: coupled trains are one physical train, so even their delays match.
+  const from = kstDate(-6), to = kstDate(-1);
+  const load = async (line) => call('travelerTrainRunInfo2', { 'cond[run_ymd::GTE]': from, 'cond[run_ymd::LTE]': to, 'cond[mrnt_nm::EQ]': line });
+  const secs = (t) => { const [h, m, x] = t.split(':').map(Number); return h * 3600 + m * 60 + (x || 0); };
+  const index = (rows) => {
+    const days = new Map();
+    for (const r of rows) {
+      if (!['01', '02', '05', '11'].includes(String(r.stop_se_cd)) || SR_ONLY.has(r.stn_nm)) continue;
+      const t = timeOf(r.trn_arvl_dt) || timeOf(r.trn_dptre_dt);
+      if (!t) continue;
+      const no = trainNo(r.trn_no);
+      if (!days.has(r.run_ymd)) days.set(r.run_ymd, new Map());
+      const day = days.get(r.run_ymd);
+      if (!day.has(no)) day.set(no, new Map());
+      day.get(no).set(r.stn_nm, secs(t));
+    }
+    return days;
+  };
+  const honamRows = [];
+  for (const line of LINES) honamRows.push(...await load(line));
+  const jeollaRows = await load('전라선');
+  const honam = index(honamRows), jeolla = index(jeollaRows);
+  console.log(`운행 기록 ${from}~${to}: 호남 ${honamRows.length}줄 · 전라 ${jeollaRows.length}줄`);
+  if (jeolla.size < 2 || honam.size < 2) return null;
+  const ids = new Set(trains.map((t) => t.id));
+  const score = new Map();
+  for (const [ymd, hDay] of honam) {
+    const jDay = jeolla.get(ymd);
+    if (!jDay) continue;
+    for (const [id, hs] of hDay) {
+      if (!ids.has(id)) continue;
+      for (const [no, js] of jDay) {
+        if (no === id) continue;
+        let same = 0;
+        for (const [st, t] of hs) if (js.has(st) && Math.abs(js.get(st) - t) <= 60) same++;
+        if (same >= 2) score.set(id + '+' + no, (score.get(id + '+' + no) || 0) + 1);
+      }
+    }
   }
-  console.log(`전라선 운행 기록 ${rows.length}줄 · 열차 ${other.size}개`);
-  if (other.size < 5) return null;
-  // Best pairs first; every 전라선 train couples with one 호남선 train at most.
-  const pairs = [];
-  for (const t of trains) for (const [no, m] of other) {
-    if (no === t.id) continue;
-    const common = t.stops.filter((x) => !SR_ONLY.has(x.station) && m.has(x.station));
-    const same = common.filter((x) => Math.abs(minutes(x.time) - minutes(m.get(x.station))) <= 1);
-    if (same.length >= 3) pairs.push({ id: t.id, no, same: same.length, common: common.length });
-  }
-  pairs.sort((x, y) => y.same - x.same || x.common - y.common);
+  const pairs = [...score].map(([k, days]) => ({ id: k.split('+')[0], no: k.split('+')[1], days })).filter((p) => p.days >= 2).sort((x, y) => y.days - x.days);
   const out = {}, used = new Set();
   for (const p of pairs) {
-    if (out[p.id] || used.has(p.no)) continue;
+    if (out[p.id] || used.has(p.no)) { console.log(`  (건너뜀 ${p.id}+${p.no}: ${p.days}일)`); continue; }
     out[p.id] = p.no;
     used.add(p.no);
-    console.log(`  ${p.id}+${p.no}: 같은 시각 ${p.same}/${p.common}역`);
+    console.log(`  ${p.id}+${p.no}: ${p.days}일 동안 같은 시각`);
   }
   return out;
 }
