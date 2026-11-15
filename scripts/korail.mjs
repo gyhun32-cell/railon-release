@@ -240,13 +240,21 @@ async function coupledMap(trains) {
   }
   console.log(`전라선 운행 기록 ${rows.length}줄 · 열차 ${other.size}개`);
   if (other.size < 5) return null;
-  const out = {};
-  for (const t of trains) {
-    for (const [no, m] of other) {
-      if (no === t.id) continue;
-      const same = t.stops.filter((s) => !SR_ONLY.has(s.station) && m.has(s.station) && Math.abs(minutes(s.time) - minutes(m.get(s.station))) <= 1);
-      if (same.length >= 2) { out[t.id] = no; break; }
-    }
+  // Best pairs first; every 전라선 train couples with one 호남선 train at most.
+  const pairs = [];
+  for (const t of trains) for (const [no, m] of other) {
+    if (no === t.id) continue;
+    const common = t.stops.filter((x) => !SR_ONLY.has(x.station) && m.has(x.station));
+    const same = common.filter((x) => Math.abs(minutes(x.time) - minutes(m.get(x.station))) <= 1);
+    if (same.length >= 3) pairs.push({ id: t.id, no, same: same.length, common: common.length });
+  }
+  pairs.sort((x, y) => y.same - x.same || x.common - y.common);
+  const out = {}, used = new Set();
+  for (const p of pairs) {
+    if (out[p.id] || used.has(p.no)) continue;
+    out[p.id] = p.no;
+    used.add(p.no);
+    console.log(`  ${p.id}+${p.no}: 같은 시각 ${p.same}/${p.common}역`);
   }
   return out;
 }
