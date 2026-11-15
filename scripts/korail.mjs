@@ -221,7 +221,62 @@ async function rebuild(lines, since = null) {
   return out.map(keepSrStops).sort((a, b) => a.stops[0].time.localeCompare(b.stops[0].time));
 }
 
+/**
+ * 복합열차: a 호남선 train that runs coupled with a 전라선 train has the very same times at the
+ * stations they share (용산~익산). Returns { 호남선 열차번호: 전라선 열차번호 }, or null when the
+ * 전라선 records could not be read (so existing marks are kept).
+ */
+async function coupledMap(trains) {
+  const rows = await call('travelerTrainRunInfo2', { 'cond[run_ymd::GTE]': kstDate(-7), 'cond[run_ymd::LTE]': kstDate(-1), 'cond[mrnt_nm::EQ]': '전라선' });
+  const other = new Map();
+  for (const r of rows) {
+    if (!['01', '02', '05', '11'].includes(String(r.stop_se_cd)) || !honamStations.has(r.stn_nm)) continue;
+    const t = timeOf(r.trn_arvl_dt) || timeOf(r.trn_dptre_dt);
+    if (!t) continue;
+    const no = trainNo(r.trn_no);
+    if (!other.has(no)) other.set(no, new Map());
+    const m = other.get(no), hm = t.slice(0, 5);
+    if (!m.has(r.stn_nm) || hm < m.get(r.stn_nm)) m.set(r.stn_nm, hm);
+  }
+  console.log(`전라선 운행 기록 ${rows.length}줄 · 열차 ${other.size}개`);
+  if (other.size < 5) return null;
+  const out = {};
+  for (const t of trains) {
+    for (const [no, m] of other) {
+      if (no === t.id) continue;
+      const same = t.stops.filter((s) => !SR_ONLY.has(s.station) && m.has(s.station) && Math.abs(minutes(s.time) - minutes(m.get(s.station))) <= 1);
+      if (same.length >= 2) { out[t.id] = no; break; }
+    }
+  }
+  return out;
+}
+
+/** Marks coupled trains in timetable/data.json; bumps the version only when the marks change. */
+async function refreshCoupled(save = true) {
+  const data = JSON.parse(readFileSync('timetable/data.json', 'utf8'));
+  const map = await coupledMap(data);
+  if (!map) { console.log('전라선 기록이 부족해 복합열차 표시는 그대로 둠'); return; }
+  console.log('복합열차 ' + Object.keys(map).length + '개: ' + data.filter((t) => map[t.id]).map((t) => `${t.id}(${t.direction === 'down' ? '하행' : '상행'} ${t.stops[0].time.slice(0, 5)} ${t.stops[0].station}→${t.stops.at(-1).station})+${map[t.id]}`).join(', '));
+  let changed = false;
+  for (const t of data) {
+    if ((t.coupled || '') !== (map[t.id] || '')) changed = true;
+    if (map[t.id]) t.coupled = map[t.id]; else delete t.coupled;
+  }
+  if (!changed || !save) { console.log(changed ? '(저장 안 함)' : '복합열차 표시 변화 없음'); return; }
+  const meta = JSON.parse(readFileSync('timetable/meta.json', 'utf8'));
+  meta.version = meta.version.replace(/\+c\d+$/, '') + '+c' + kstDate(0);
+  meta.updatedAt = ymdDash(kstDate(0));
+  writeFileSync('timetable/data.json', JSON.stringify(data));
+  writeFileSync('timetable/meta.json', JSON.stringify(meta) + '\n');
+  console.log('복합열차 표시 저장:', meta.version);
+}
+
 async function update() {
+  await updateTimetable();
+  await refreshCoupled().catch((e) => console.log('복합열차 확인 실패(다음에 다시):', e.message));
+}
+
+async function updateTimetable() {
   const notices = existsSync('notices.json') ? JSON.parse(readFileSync('notices.json', 'utf8')) : [];
   const diff = await recordDiff(3);
   writeFileSync('timetable/check.json', JSON.stringify({ checkedAt: new Date().toISOString(), ...diff, changed: diff.changed.slice(0, 40), missing: diff.missing.slice(0, 40), added: diff.added.slice(0, 40) }, null, 1) + '\n');
@@ -294,4 +349,4 @@ async function planOnly() {
   console.log('감지 결과:', JSON.stringify(noticeFromDiff(d)));
 }
 
-(mode === 'update' ? update() : mode === 'compare' ? compare() : mode === 'plan' ? planOnly() : probe()).catch((e) => { console.error(e.message); process.exit(1); });
+(mode === 'update' ? update() : mode === 'coupled' ? refreshCoupled(false) : mode === 'compare' ? compare() : mode === 'plan' ? planOnly() : probe()).catch((e) => { console.error(e.message); process.exit(1); });
