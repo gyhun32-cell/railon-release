@@ -272,7 +272,7 @@ async function coupledMap(trains) {
   const out = {}, used = new Set();
   for (const p of pairs) {
     for (const ymd of joined.get(p.id + '+' + p.no)) mark(joined, p.id, ymd);
-    if (out[p.id] || used.has(p.no)) { console.log(`  (또 다른 짝 ${p.id}+${p.no}: ${p.days}일)`); continue; }
+    if (out[p.id]) { console.log(`  (또 다른 짝 ${p.id}+${p.no}: ${p.days}일)`); continue; }
     out[p.id] = p.no;
     used.add(p.no);
     console.log(`  ${p.id}+${p.no}: ${p.days}일 동안 같은 시각`);
