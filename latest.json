@@ -1,7 +1,7 @@
 {
-  "versionCode": 35,
-  "versionName": "1.5.4",
-  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.5.4-35/railon.apk",
-  "notes": "전체 알람·상단 카드 디자인 개선 · 프리텐다드 한글 글꼴 · 유리 느낌의 캡슐 버튼과 부드러운 눌림 효과",
-  "publishedAt": "2026-11-11T02:37:09.367738+00:00"
+  "versionCode": 37,
+  "versionName": "1.6.0",
+  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.6.0-37/railon.apk",
+  "notes": "알람 화면 새 디자인: 큰 도착 시각 + 실시간 남은 시간과 진행 막대, 열차·방향·호차를 한눈에 보는 카드, 흰색 확인 버튼 / 복합열차 자동 표시: 전라선 열차와 붙어 오는 하행 KTX는 '복합열차 · 11~18호차'가 알람과 목록에 나와요(금·토·일만 붙는 열차도 구분)",
+  "publishedAt": "2026-11-15T15:57:04.369Z"
 }
