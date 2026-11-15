@@ -1,7 +1,7 @@
 {
-  "versionCode": 37,
-  "versionName": "1.6.0",
-  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.6.0-37/railon.apk",
-  "notes": "알람 화면 새 디자인: 큰 도착 시각 + 실시간 남은 시간과 진행 막대, 열차·방향·호차를 한눈에 보는 카드, 흰색 확인 버튼 / 복합열차 자동 표시: 전라선 열차와 붙어 오는 하행 KTX는 '복합열차 · 11~18호차'가 알람과 목록에 나와요(금·토·일만 붙는 열차도 구분)",
-  "publishedAt": "2026-11-15T15:57:04.369Z"
+  "versionCode": 39,
+  "versionName": "1.6.2",
+  "apk": "https://github.com/gyhun32-cell/railon-release/releases/download/v1.6.2-39/railon.apk",
+  "notes": "앱 이름이 '플랫'으로 바뀌었어요(기존 설정·알람 그대로) / 새 앱 아이콘: 도착까지 남은 시간 링 + 열차 / 상단 알람 카드에서 열차 정보가 한 줄로 깔끔하게 나와요",
+  "publishedAt": "2026-11-15T16:14:45.652Z"
 }
