@@ -228,7 +228,7 @@ async function rebuild(lines, since = null) {
  */
 async function coupledMap(trains) {
   // Compare real runs day by day: coupled trains are one physical train, so even their delays match.
-  const from = kstDate(-6), to = kstDate(-1);
+  const from = kstDate(-14), to = kstDate(-1);
   const load = async (line) => call('travelerTrainRunInfo2', { 'cond[run_ymd::GTE]': from, 'cond[run_ymd::LTE]': to, 'cond[mrnt_nm::EQ]': line });
   const secs = (t) => { const [h, m, x] = t.split(':').map(Number); return h * 3600 + m * 60 + (x || 0); };
   const index = (rows) => {
@@ -281,8 +281,13 @@ async function coupledMap(trains) {
   const daysOut = {};
   for (const id of Object.keys(out)) {
     const on = joined.get(id), all = ran.get(id);
-    if (on.size >= all.size) continue;
-    const wd = [...new Set([...on].map(weekdayOf))].sort((x, y) => ((x + 6) % 7) - ((y + 6) % 7));
+    // A missed day here and there is a gap in the records, not a real pattern.
+    if (on.size >= all.size * 0.75) continue;
+    // Otherwise go weekday by weekday: coupled on a weekday when at least half of its runs were.
+    const wd = [0, 1, 2, 3, 4, 5, 6].filter((d) => {
+      const runs = [...all].filter((y) => weekdayOf(y) === d);
+      return runs.length && runs.filter((y) => on.has(y)).length * 2 >= runs.length;
+    }).sort((x, y) => ((x + 6) % 7) - ((y + 6) % 7));
     daysOut[id] = wd.map((d) => DAYS[d]).join('');
     console.log(`  ${id}: ${all.size}일 운행 중 ${on.size}일만 복합 (${daysOut[id]})`);
   }
